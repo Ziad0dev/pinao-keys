@@ -5,24 +5,73 @@ keys.forEach(function(key){
   notes.push(document.getElementById(key));
 })
 
-// Write named functions that change the color of the keys below
-const keyPlay = (event) => {
-  event.target.style.backgroundColor = '#6df0c2'; 
+// Frequencies (Hz) for each key, starting at middle C (C4)
+const frequencies = {
+  'c-key': 261.63, 'c-sharp-key': 277.18, 'd-key': 293.66, 'd-sharp-key': 311.13,
+  'e-key': 329.63, 'f-key': 349.23, 'f-sharp-key': 369.99, 'g-key': 392.0,
+  'g-sharp-key': 415.3, 'a-key': 440.0, 'a-sharp-key': 466.16, 'b-key': 493.88,
+  'high-c-key': 523.25,
+};
+
+// Computer keyboard bindings, laid out like a piano on the home row
+const keyboardMap = {
+  a: 'c-key', w: 'c-sharp-key', s: 'd-key', e: 'd-sharp-key', d: 'e-key',
+  f: 'f-key', t: 'f-sharp-key', g: 'g-key', y: 'g-sharp-key', h: 'a-key',
+  u: 'a-sharp-key', j: 'b-key', k: 'high-c-key',
+};
+
+let audioCtx;
+const voices = {};
+
+const startTone = (id) => {
+  audioCtx = audioCtx || new AudioContext();
+  if (voices[id]) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = frequencies[id];
+  gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.3, audioCtx.currentTime + 0.02);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  voices[id] = { osc, gain };
 }
 
-const keyReturn = (event) => {
-  event.target.style.backgroundColor = '';
+const stopTone = (id) => {
+  const voice = voices[id];
+  if (!voice) return;
+  voice.gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+  voice.osc.stop(audioCtx.currentTime + 0.3);
+  delete voices[id];
+}
+
+// Write named functions that change the color of the keys below
+const keyPlay = (note) => {
+  note.style.backgroundColor = '#6df0c2';
+  startTone(note.id);
+}
+
+const keyReturn = (note) => {
+  note.style.backgroundColor = '';
+  stopTone(note.id);
 }
 
 // Write a named function with event handler properties
 const named = (note) => {
-  note.onmousedown = () => { 
-    keyPlay(event);
-  }
-  note.onmouseup = () => {
-    keyReturn(event);
-  }
+  note.onmousedown = () => keyPlay(note);
+  note.onmouseup = () => keyReturn(note);
+  note.onmouseleave = () => keyReturn(note);
 }
+
+document.addEventListener('keydown', (event) => {
+  const id = keyboardMap[event.key.toLowerCase()];
+  if (id && !event.repeat) keyPlay(document.getElementById(id));
+});
+
+document.addEventListener('keyup', (event) => {
+  const id = keyboardMap[event.key.toLowerCase()];
+  if (id) keyReturn(document.getElementById(id));
+});
 
 // Write a loop that runs the array elements through the function
 notes.forEach(named);
